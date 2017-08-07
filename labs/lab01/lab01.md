@@ -251,7 +251,7 @@ traceroute to www.speedtest.com.sg (202.150.221.170), 30 hops max, 60 byte packe
 
 #### Answer
 
-The reverse path does not appear to go through the same routers as the forward path as can be seen in making a quick comparison of the traceroute output of the forward and reverse path of my local CSE machine to the two servers `www.speedtest.com.sg` and `www.telstra.net/cgi-bin/trace`. However the reverse and the forward path do appear to be hopping through routers with close numerical IP addresses to each other which suggests that might be smaller routers of a larger network - for example on hop 7 on the forward path and hop 8 on the backward path to www.telstra.net/cgi-bin/trace the traceroute appears to be going through close numerical IP addresses of `113.197.15.153` and `113.197.15.146`. This is most likely because these routers are smaller routers that are part of a larger server as these two servers appear to be quite large as well as my local CSE server being also part of a larger server hence while they don't go through exactly the same routers getting there they will go through routers with similar neutral IP addresses.
+The reverse path does not appear to go through the same routers as the forward path as can be seen in making a quick comparison of the traceroute output of the forward and reverse path of my local CSE machine to the two servers `www.speedtest.com.sg` and `www.telstra.net/cgi-bin/trace`. However the reverse and the forward path do appear to be hopping through routers with close numerical IP addresses to each other which suggests that might be smaller routers of a larger network - for example on hop 7 on the forward path and hop 8 on the backward path to www.telstra.net/cgi-bin/trace the traceroute appears to be going through close numerical IP addresses of `113.197.15.153` and `113.197.15.146`. This is most likely because these routers are smaller routers that are part of a larger server as these two servers appear to be quite large as well as my local CSE server being also part of a larger server hence while they don't go through exactly the same routers getting there they will go through routers with similar numerical IP addresses.
 
 ## Exercise 3 
 
@@ -308,9 +308,9 @@ Packet size (bytes) | Average delay (ms)| Minimum delay (ms)
 ### Answer
 
 #### Question 1
-Destination |Approximate distance from UNSW (km) | Minimum delay (RTT @ packet size = 50 bytes) / shortest possible time (ratio)
------------- | ------------- 
-UQ | 925 | 16.611 / 3.083 = 5.39
+Destination | Approximate distance from UNSW (km) | Minimum delay (RTT @ packet size = 50 bytes) / shortest possible time (ratio)
+------------| ------------------------------------| ------------------------------------------------------------------------------
+UQ 			 | 925 | 16.611 / 3.083 = 5.39
 NUS | 6317 | 145.204 / 21.057 = 6.90
 TU BERLIN | 16118 | 302.788 / 53.73 = 5.64
 
