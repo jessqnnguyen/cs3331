@@ -66,5 +66,20 @@ The data contained inside the HTTP response packet is of `text/html` type.
 
 ## Exercise 4
 
+### Question 1
+No, there is not an `If-Modified-Since` field in the HTTP GET request.
+
+### Question 2
+Yes, the response indicates the last time the requested page was modified was Tue, 23 Sep 2003 05:35:00 GMT.
+
+### Question 3
+Yes, there appears to be an `If-Modified-Since` field in the HTTP GET request. The field stores the following date value: Tue, 23 Sep 2003 05:35:00 GMT.
+
+### Question 4
+The second HTTP GET request returned a 304 status code and the response phrase `Not-Modified`. The server did not explicitly return the contents of the file since the `If-Modified-Since` field is used to determine whether the version of the file already stored in the web cache has been updated since it was cached, and since it hasn't, the GET reponse returns with no explicit content body and just lets the client know it hasn't been modified.
+
+## Exercise 5: Implementing a ping server
+
+
 
 
