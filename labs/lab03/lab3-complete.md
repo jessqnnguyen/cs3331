@@ -1,5 +1,83 @@
 # CS3331 Lab 3: Digging deeper in DNS and TCP sockets 
 
+## Exercise 1 - Explore DNS records (not-marked)
+
+DNS records are ** resource records ** (RRs)  stored on DNS servers. The most basic type of RR is the Type A record which provides the basic hostname-to-IP address mappings. 
+
+A RR is a four-tuple that contains the following fields:
+
+`(Name, Value, Type, TTL)`
+
+TTL is the time to live of the RR, it determines when the resource should be removed from the cache.
+
+The fields `Name` and `Value` depend on `Type` in the above RR tuple format.
+
+### Type=A
+`Name` is the host and `Value` is the IP address for the hostname.
+
+Example: `(relay1.bar.foo.com, 145.37.93.126, A)`
+
+### Type=NS
+`Name` is the domain and `Value` is the hostname of an authoritative DNS server that knows how to obtain the IP addresses for the hosts in the domain. 
+
+* This type of record routes DNS queries further along in query chain.
+
+Example: `(foo.com, dns.foo.com, NS)`
+
+### Type=CNAME
+`Name` is an alias hostname and `Value` is the canonical hostname.
+
+Example: `(foo.com, relay1.bar.foo.com, CNAME)`
+
+### Type=MX
+`Name` is an alias hostname and `Value` is the canonical name of the mail server corresponding to the alias hostname.
+
+* These types of records allow hostnames of mail servers to have simple aliases.
+
+Example: `(foo.com, mail.bar.foo.com, MX)`
+
+### Type=PTR
+`Name` is an IP address and `Value` is a hostname
+
+* A PTR record is like a reverse version of A record 
+* Useful for outgoing mail servers, adds reliability for sending server and allows receiving end to check the hostname of an IP address which protects against spammers who 
+use fraudulent domain names to send spam
+
+Example: `(15, www.example.com, PTR)`
+
+The value `15` (a base IP address) is actually a name
+
+### Type=SOA
+* Stands for `Start of authority`
+* A DNS zone is the part of the domain that an individual DNS server is responsible
+* Each zone contains a single SOA record
+
+Stores:
+
+* the name of the server which supplied the data for the zone
+* the admin of the zone
+* the current version of the data file
+* the # seconds a secondary server should wait before checking for updates
+* the # seconds a secondary server should wait before retrying a failed zone transfer
+* the maximum # seconds that a secondary name server can use data before it must either be refreshed or expire
+* default # seconds for ttl of the RR record
+
+Example: 
+
+```
+IN SOA master.example.com. hostmaster.
+example.com. (
+    2017030300 ; serial
+    3600       ; refresh
+    1800       ; retry
+    604800     ; expire
+    600 )      ; ttl
+``` 
+
+### Type=AAAA
+Similar to Type A records except instead of mapping a 32-bit IPv4 address (Type A) it maps a 128-bit IPv6 address.
+
+
 ## Exercise 2: Digging into DNS
 
 ### Question 1
@@ -389,58 +467,3 @@ Yes - one physical machine can have several names (aliases) setup or IP addresse
 
 
 ### Exercise 3: Implementing a simple Web Server
-
-```
-# Retrieve command line args library.
-import sys
-# Socket programming library.
-import socket
-# Regex and string operations library.
-import string
-import re
-
-# Retrieve server port from command line input args.
-# port = sys.argv[1]
-port = int (sys.argv[1])
-host = ''
-
-# Store default buffer size (max amount of data to receive at once).
-bufferSize = 1024
-
-# Create a TCP socket (SOCK_STREAM) and bind it to the input port
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((host, port))
-s.listen(1)
-
-while True:
-    conn, address = s.accept()
-    # Retrieve the request object.
-    data = conn.recv(bufferSize)
-    # Split the GET request by new lines.
-    lines = string.split(data, '\n')
-    # Retrieve the file name in the GET request using regex matching.
-    match = re.findall('/\w+.\w+', data)[0]
-    fileName = re.findall('\w+.\w+', match)[0]
-    try:
-        # Open the file and send it over the connection socket if successful.
-        f = open(fileName, 'rb')
-        l = f.read(bufferSize)
-        # Send HTTP header.
-        conn.send('HTTP/1.0 200 OK\n')
-        conn.send('Content-Type: text/html\n')
-        conn.send('\n')
-        conn.send('"""')
-        while l:
-            conn.send(l)
-            print "Sent: %s" % l
-            l = f.read(bufferSize)
-        conn.send('"""')
-        f.close()
-    except IOError:
-        # If opening the file was unsuccessful, return a 404 error.
-        conn.send("HTTP/1.1 404 Not Found\r\n\r\n")
-
-conn.close()
-
-
-```

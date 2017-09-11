@@ -2,7 +2,7 @@
 import sys
 # Socket programming library.
 import socket
-
+# Regex and string operations library.
 import string
 import re
 
@@ -21,14 +21,18 @@ s.listen(1)
 
 while True:
     conn, address = s.accept()
-    # Retrieve the request object
+    # Retrieve the request object.
     data = conn.recv(bufferSize)
+    # Split the GET request by new lines.
     lines = string.split(data, '\n')
-    match = re.findall('/.[a-zA-Z0-9]+.[a-z]+', data)[0]
-    fileName = re.findall('[a-zA-Z0-9_]+.[a-zA-Z0-9_]+', match)[0]
+    # Retrieve the file name in the GET request using regex matching.
+    match = re.findall('/\w+.\w+', data)[0]
+    fileName = re.findall('\w+.\w+', match)[0]
     try:
+        # Open the file and send it over the connection socket if successful.
         f = open(fileName, 'rb')
         l = f.read(bufferSize)
+        # Send HTTP header.
         conn.send('HTTP/1.0 200 OK\n')
         conn.send('Content-Type: text/html\n')
         conn.send('\n')
@@ -40,6 +44,7 @@ while True:
         conn.send('"""')
         f.close()
     except IOError:
+        # If opening the file was unsuccessful, return a 404 error.
         conn.send("HTTP/1.1 404 Not Found\r\n\r\n")
 
 conn.close()
