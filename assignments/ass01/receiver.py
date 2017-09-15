@@ -1,3 +1,8 @@
+# Jessica Nguyen
+# z5018882
+# CS3331 Assignment 1
+# python3
+
 """ Receiver operating on the STP Protocol module. """
 import sys
 # Socket programming library.
@@ -8,10 +13,6 @@ import pickle
 from datetime import datetime
 # Segment module.
 from segment import STPSegment, STPLogger
-
-LOG_FILE_NAME = "Receiver_log.txt"
-STP_LOGGER = STPLogger()
-STATE = ReceiverState()
 
 class ReceiverState(object):
     """ An object to keep track of state variables required for processing
@@ -57,7 +58,7 @@ class ReceiverState(object):
         """
         self.receiver_port = 0
         self.file_name = ''
-        self.start_time = datetime.now()
+        self.start_time = None
         self.time_elapsed = 0
         self.curr_seq_num = 0
         self.curr_ack_num = 0
@@ -72,6 +73,14 @@ class ReceiverState(object):
         self.is_connection_being_terminated = False
         self.is_file_transfer_complete = False
         self.data_file = None
+        self.received_seq_nums = {}
+        self.receiver_ip = ''
+        self.last_data_segment_received = None
+
+LOG_FILE_NAME = "Receiver_log.txt"
+STP_LOGGER = STPLogger()
+STATE = ReceiverState()
+MAX_BUFFER_SIZE = 4096
 
 def main(argv):
     """ Main function taking in commandline args. """
@@ -79,32 +88,38 @@ def main(argv):
     STATE.receiver_port = int(argv[1])
     STATE.file_name = argv[2]
 
-    # Store max buffer size.
-    # TODO: Remove this magic number. 
-    max_buffer_size = 1024
+    STATE.receiver_ip = socket.gethostbyname(socket.gethostname())
 
     # Create a UDP socket instance using IPv4 addresses (AF_INET) and
     # UDP protocol (SOCK_DGRAM).
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # Bind it to the input receiver port.
-    sock.bind((socket.gethostname(), port))
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Bind it to the input receiver port.
+        sock.bind(('', STATE.receiver_port))
+        STATE.start_time = datetime.now()
+    except socket.error:
+        print("Failed to complete socket.")
+        sys.exit()
 
     while not STATE.is_file_transfer_complete:
-        print("Waiting to receive from port %d" % port)
-        data = sock.recv(max_buffer_size)
+        print("Waiting to receive from port %d" % STATE.receiver_port)
+        data = sock.recv(MAX_BUFFER_SIZE)
         if data:
             STATE.segments_received_num += 1
 
             # Deserialize segment back into an STPSegment object.
-            segment = pickle.load(data)
-
+            segment = pickle.loads(data)
+            print("segment with seq %d and ack %d" % (segment.seq_num, segment.ack_num))
             # Initialise a basic STP segment reply object with address params
             # (source_ip, dest_ip, source_port, dest_port) and mss field set.
             segment_reply = init_segment_reply(segment)
 
             # Store sender address extracted from segment source IP and port
             # fields.
-            STATE.sender_addr = (segment.source_ip, segment.source_port)
+            if segment.source_ip == STATE.receiver_ip:
+                STATE.sender_addr = ('localhost', segment.source_port)
+            else:
+                STATE.sender_addr = (segment.source_ip, segment.source_port)
             # Connection not yet established case.
             if not STATE.is_connected:
                 if segment.syn_flag:
@@ -114,15 +129,20 @@ def main(argv):
             elif STATE.sender_addr == STATE.established_sender_addr:
                 # Check if the segment is requesting a connection termination.
                 if segment.fin_flag:
-                    process_connection_termination(sock, segment, segment_reply)
+                    if not STATE.is_connection_being_terminated:
+                        start_connection_termination(sock, segment, segment_reply)
+                if STATE.is_connection_being_terminated:
+                    complete_connection_termination(sock, segment, segment_reply)
                 # Process a data type segment.
                 else:
+                    print("processing")
                     process_data_type_segment(sock, segment, segment_reply)
-    STATE.log_file.write("Amount of data received (bytes): %d"
+    sock.close()
+    STATE.log_file.write("\nAmount of data received (bytes): %d\n"
                           % STATE.data_received_num)
-    STATE.log_file.write("# data segments received: %d"
+    STATE.log_file.write("Number of data segments received: %d \n"
                           % STATE.segments_received_num)
-    STATE.log_file.write("# duplicate segments received: %d"
+    STATE.log_file.write("Number of duplicate segments received: %d \n"
                           % STATE.duplicate_segments_received_num)
     STATE.log_file.close()
 
@@ -130,125 +150,162 @@ def process_connection_establishment(sock, segment, segment_reply):
     """ A helper function to process segments with the syn_flag set. """
     update_time_elapsed()
     STATE.log_file.write(STP_LOGGER.log("rcv", STATE.time_elapsed, "S",
-                                         segment.seq_num, segment.mss,
+                                         segment.seq_num, len(segment.data),
                                          segment.ack_num))
     # If segment is the first stage of three way handshake.
     if not STATE.is_connection_being_established:
         STATE.is_connection_being_established = True
         segment_reply.syn_flag = True
+        segment_reply.ack_flag = True
         STATE.curr_ack_num = segment.seq_num + 1
         segment_reply.set_seq_ack_num(STATE.curr_seq_num, STATE.curr_ack_num)
+        print("sender_addr = (%s, %d)" % (STATE.sender_addr[0], STATE.sender_addr[1]))
         segment_reply.send_segment(sock, STATE.sender_addr)
-        STATE.log_file.write(STP_LOGGER.log(STATE.log_file, "snd",
-                                             STATE.time_elapsed, "S",
-                                             segment_reply.seq_num,
-                                             segment_reply.mss,
-                                             segment_reply.ack_num))
+        STATE.log_file.write(STP_LOGGER.log("snd", STATE.time_elapsed, "SA",
+                                            segment_reply.seq_num,
+                                            len(segment_reply.data),
+                                            segment_reply.ack_num))
         STATE.curr_seq_num += 1
         STATE.established_sender_addr = STATE.sender_addr
     # If the segment is the final stage of three way
     # handshake.
     is_final_stage_of_handshake = ((STATE.is_connection_being_established) and
-                                   (segment.ack_num == STATE.curr_seq_num + 1)
-                                   and (STATE.sender_addr !=
-                                        STATE.established_sender_addr))
+                                   (segment.ack_num == STATE.curr_seq_num))
+                                #    and (STATE.sender_addr !=
+                                        # STATE.established_sender_addr))
     if is_final_stage_of_handshake:
         STATE.is_connected = True
         STATE.data_file = open(STATE.file_name, "w")
         STATE.is_connection_being_established = False
         STATE.curr_ack_num += 1
 
-def process_connection_termination(sock, segment, segment_reply):
+def complete_connection_termination(sock, segment, segment_reply):
+    # Check for final reply ACK to terminate connection.
+    if segment.ack_num == STATE.curr_seq_num + 1:
+        STATE.log_file.write(STP_LOGGER.log("rcv",
+                                             STATE.time_elapsed, "A",
+                                             segment.seq_num, len(segment.data),
+                                             segment.ack_num))
+        STATE.is_connected = False
+        STATE.is_connection_being_terminated = False
+        STATE.data_file.close()
+        STATE.is_file_transfer_complete = True
+
+def start_connection_termination(sock, segment, segment_reply):
     """ A helper function to process segments with the fin_flag set. """
     update_time_elapsed()
-    STATE.log_file.write(STP_LOGGER.log(STATE.log_file, "rcv",
+    STATE.log_file.write(STP_LOGGER.log("rcv",
                                          STATE.time_elapsed, "F",
-                                         segment.seq_num, segment.mss,
+                                         segment.seq_num, len(segment.data),
                                          segment.ack_num))
-    if not STATE.is_connection_being_terminated:
-        STATE.is_connection_being_terminated = True
-        # First send a segment reply with an ACK.
-        STATE.curr_ack_num += 1
-        segment_reply.set_seq_ack_num(STATE.curr_seq_num, STATE.curr_ack_num)
-        segment_reply.fin_flag = True
-        segment_reply.send_segment(sock, STATE.sender_addr)
-        update_time_elapsed()
-        STATE.log_file.write(STP_LOGGER.log(STATE.log_file, "snd",
-                                             STATE.time_elapsed, "FA",
-                                             segment_reply.seq_num,
-                                             segment_reply.mss,
-                                             segment_reply.ack_num))
-        # TODO: Remove this commented out section once clarified
-        # whether connection termination requires two segments?
-        # Then send a segment reply with the FIN flag set.
-        # segment_reply.fin_flag(True)
-        # segment_reply.send_segment(sock, SENDER_ADDR)
-        # STP_LOGGER.log(STATE.log_file, "snd", STATE.time_elapsed, "F"
-        #               segment_reply.seq_num, segment_reply.mss,
-        #               segment.ack_num)
-    else:
-        # Check for final reply ACK to terminate connection.
-        if segment.ack_num == STATE.curr_seq_num + 1:
-            STATE.is_connected = False
-            STATE.is_connection_being_terminated = False
-            STATE.data_file.close()
-            STATE.is_file_transfer_complete = True
+    STATE.is_connection_being_terminated = True
+    # First send a segment reply with an ACK.
+    STATE.curr_ack_num += 1
+    segment_reply.set_seq_ack_num(STATE.curr_seq_num, STATE.curr_ack_num)
+    segment_reply.ack_flag = True
+    segment_reply.send_segment(sock, STATE.sender_addr)
+    update_time_elapsed()
+    STATE.log_file.write(STP_LOGGER.log("snd",
+                                         STATE.time_elapsed, "A",
+                                         segment_reply.seq_num,
+                                         segment_reply.mss,
+                                         segment_reply.ack_num))
+    fin_segment = init_segment_reply(segment)
+    fin_segment.set_seq_ack_num(STATE.curr_seq_num, STATE.curr_ack_num)
+    fin_segment.fin_flag = True
+    fin_segment.ack_flag = False
+    fin_segment.send_segment(sock, STATE.sender_addr)
+    STP_LOGGER.log("snd", STATE.time_elapsed, "F", segment_reply.seq_num,
+                   segment_reply.mss, segment_reply.ack_num)
 
 def process_data_type_segment(sock, segment, segment_reply):
     """ A helper function to process segments where the connection
         has been established which contain a data payload.
     """
-    # Check segment is a duplicate, that is the sequence
-    # number is equal to the most recent acknowledged byte
-    # minus 1.
+    is_reply_already_sent = False
     update_time_elapsed()
-    STATE.log_file.write(STP_LOGGER.log(STATE.log_file, "rcv",
+    STATE.log_file.write(STP_LOGGER.log("rcv",
                                          STATE.time_elapsed, "D",
                                          segment.seq_num,
-                                         segment.mss, segment.ack_num))
-    if segment.seq_num == STATE.curr_ack_num - 1:
-        STATE.duplicate_segments_received_num += 1
+                                         len(segment.data), segment.ack_num))
+    next_expected_seq_num = -1
+    if STATE.last_data_segment_received:
+        # last_seq_num = STATE.last_data_segment_received.seq_num
+        # data_size = len(STATE.last_data_segment_received.data)
+        # next_expected_seq_num = last_seq_num + data_size
+        next_expected_seq_num = STATE.curr_ack_num 
+
+    if segment.seq_num in STATE.received_seq_nums.keys():
+            STATE.received_seq_nums[segment.seq_num] += 1
+            STATE.duplicate_segments_received_num += 1
+            print("duplicate registered")
+
+    if next_expected_seq_num != -1 and next_expected_seq_num != segment.seq_num:
+        # Packet arrived out of order. Resend ack.
+        print("packet arrived out of order, resend ack")
+        segment_reply.set_seq_ack_num(STATE.curr_seq_num, STATE.curr_ack_num)
+        segment_reply.send_segment(sock, STATE.sender_addr)
+        is_reply_already_sent = True
+        update_time_elapsed()
+        STATE.log_file.write(STP_LOGGER.log("snd",
+                                             STATE.time_elapsed, "A",
+                                             segment_reply.seq_num,
+                                             len(segment_reply.data),
+                                             segment_reply.ack_num))
     else:
+        print("packet arrived in order")
         STATE.data_file.write(segment.data)
-        STATE.curr_ack_num += segment.mss
+        print("updating curr ack num %d by %d" % (STATE.curr_ack_num, len(segment.data)))
+        STATE.curr_ack_num += len(segment.data)
         STATE.curr_seq_num += 1
         # Update logger vars.
-        STATE.data_received_num += segment.mss
+        STATE.data_received_num += len(segment.data)
         STATE.segments_received_num += 1
-    segment_reply.set_seq_ack_num(STATE.curr_seq_num, STATE.curr_ack_num)
-    segment_reply.send_segment(sock, STATE.sender_addr)
-    update_time_elapsed()
-    STATE.log_file.write(STP_LOGGER.log(STATE.log_file, "snd",
-                                         STATE.time_elapsed, "A",
-                                         segment_reply.seq_num,
-                                         segment_reply.mss,
-                                         segment_reply.ack_num))
+
+    if not is_reply_already_sent:
+        segment_reply.set_seq_ack_num(STATE.curr_seq_num, STATE.curr_ack_num)
+        segment_reply.send_segment(sock, STATE.sender_addr)
+        update_time_elapsed()
+        STATE.log_file.write(STP_LOGGER.log("snd",
+                                             STATE.time_elapsed, "A",
+                                             segment_reply.seq_num,
+                                             len(segment_reply.data),
+                                             segment_reply.ack_num))
+
+    if not(segment.seq_num in STATE.received_seq_nums.keys()):
+        STATE.received_seq_nums[segment.seq_num] = 1
+
+    STATE.last_data_segment_received = segment
 
 def init_segment_reply(segment):
     """ Helper function to initialise a basic STPSegment reply with address
-        params set and also mss set.
+        params set, mss set to 0 and ack flag set.
 
         Segments sent from the receiver should always have the mss=0
         since only segments of type "D" do not get sent from this end.
     """
     segment_reply = STPSegment()
     segment_reply.mss = 0
-    # TODO: Change this to a call to the socket's host name func.
-    # set_address_attributes(source_ip, dest_ip, source_port,
-    #                        dest_port)
-    segment_reply.set_address_attributes("localhost",
-                                         segment.source_ip,
-                                         STATE.receiver_port,
-                                         segment.source_port)
+    segment_reply.ack_flag = True
+    if STATE.receiver_ip == segment.source_ip:
+        segment_reply.set_address_attributes('localhost',
+                                             'localhost',
+                                             STATE.receiver_port,
+                                             segment.source_port)
+    else:
+        segment_reply.set_address_attributes(STATE.receiver_ip,
+                                             segment.source_ip,
+                                             STATE.receiver_port,
+                                             segment.source_port)
     return segment_reply
 
 def update_time_elapsed():
     """ A helper function to assist with logging to recalculate and set
         the time elapsed.
     """
-    STATE.time_elapsed = STATE.log_file.write(STP_LOGGER.
-                                                get_time_elapsed
-                                                (STATE.start_time))
-
+    time_delta = ((datetime.now() - STATE.start_time).microseconds)/1000
+    # STATE.time_elapsed = STP_LOGGER.get_time_elapsed(STATE.start_time)
+    STATE.time_elapsed = time_delta
 if __name__ == "__main__":
+    # sys.stdout = sys.stderr
     main(sys.argv)
