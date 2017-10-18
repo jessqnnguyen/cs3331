@@ -1,10 +1,10 @@
 # CH4 Network Layer
 
-* [ x ] Overview and services it provides
+* [x] Overview and services it provides
 
-* [ x ] Structuring network layer packet delivery:
-	* [ x ] Datagram 
-	* [ x ] Virtual circuit model
+* [x] Structuring network layer packet delivery:
+	* [x] Datagram 
+	* [x] Virtual circuit model
 
 * [ ] Fundamental role that addressing plays in delivering a packet to its destination host
 
