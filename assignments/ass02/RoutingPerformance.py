@@ -8,10 +8,10 @@ import statistics
 
 def main(argv):
     # network_scheme = argv[1] # "CIRCUIT" or "PACKET"
-    # routing_scheme = argv[2] # "SHP" "SDP" or "LLP"
-    topology_file = argv[1]
-    workload_file = argv[2]
-    packet_rate = int(argv[3]) # positive num, packets / sec
+    routing_scheme = argv[1] # "SHP" "SDP" or "LLP"
+    topology_file = argv[2]
+    workload_file = argv[3]
+    packet_rate = int(argv[4]) # positive num, packets / sec
 
     num_vc_requests = 0
     num_total_packets = 0
@@ -73,7 +73,7 @@ def main(argv):
         ttl = float(v[2])
         packets_to_send = math.floor(float(packet_rate * ttl))
         num_total_packets += packets_to_send
-        path = find_shortest_path(g, e, src, dest)
+        path = find_shortest_path(g, e, src, dest, routing_scheme)
         if check_capacity:
             establish_circuit(e, path)
             num_successfully_routed_packets += packets_to_send
@@ -144,8 +144,11 @@ def establish_circuit(e, path):
 
 
 
-def find_shortest_path(g, e, src, dest):
-    (dist, st) = dijkstra(g, e, src, dest)
+def find_shortest_path(g, e, src, dest, protocol):
+    if protocol == "SHP":
+        (dist, st) = dijkstra_shp(g, e, src, dest)
+    if protocol == "SDP":
+        (dist, st) = dijkstra_sdp(g, e, src, dest)
     path = []
     while True:
         path.append(dest)
@@ -155,7 +158,42 @@ def find_shortest_path(g, e, src, dest):
     path.reverse()
     return path
 
-def dijkstra(g, e, src, dest):
+def dijkstra_sdp(g, e, src, dest):
+    dist = dict() # final distances
+    dist[src] = 0
+    st = dict() # previous node in optimal path from src
+    q = queue.PriorityQueue()
+    if src not in g:
+        raise TypeError("The source node doesn't exist in the graph!")
+    if dest not in g:
+        raise TypeError("The destination node doesn't exist in the graph!")
+    if src == dest:
+        st[dest] = src
+        dist[dest] = 0
+    else:
+        for v in g.keys():
+            if v != src:
+                dist[v] = float("inf")
+                st[v] = ""
+
+        q.put((dist[src], src))
+        while (not q.empty()):
+            # remove and return the best vertex
+            (d, u) = q.get()
+            print ("u = " + str(u))
+            if u == dest:
+                break
+            for v in g[u]:
+                link = u + v
+                (d, c, cc) = e[link]
+                alt = dist[u] + d
+                if alt < dist[v]:
+                    dist[v] = alt
+                    st[v] = u
+                    q.put((dist[v], v))
+    return (dist, st)
+
+def dijkstra_shp(g, e, src, dest):
     dist = dict() # final distances
     dist[src] = 0
     st = dict() # previous node in optimal path from src
