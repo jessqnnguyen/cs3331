@@ -38,7 +38,7 @@ To do so, 3 important network layer functions are used:
 * Each router has a forwarding table
 * A router forwards a packet by examining the arriving packet's header (usually the destination address of the packet) and then inserting that value as the key and the value as the output link the packet will be forwarded to 
 
-![](network-layer-notes-01.png)
+![](images/network-layer-notes-01.png)
 
 ### Routing 
 
@@ -130,11 +130,11 @@ Messages that are passed between routers to setup the VC are known as `signaling
 * Each router has four links numbered 0 - 3 
 * Then the forwarding table would capture a range to map where addresses in that range should be sent to what output link like so:
 
-![](network-layer-notes-02.png)
+![](images/network-layer-notes-02.png)
 
 The range is condensed into a prefix match such that the table looks like (looks more simple):
 
-![](network-layer-notes-03.png)
+![](images/network-layer-notes-03.png)
 
 * When the address matches more than one entry in the table the router uses the `longest prefix matching rule` in which it matches the address with the longest prefix match in the table 
 
@@ -205,7 +205,7 @@ The internet's network layer has three major components:
 * A datagram is a network layer packet
 * Diagram of the fields:
 
-![](network-layer-notes-04.png)
+![](images/network-layer-notes-04.png)
 
 
 Some key fields:
@@ -315,11 +315,11 @@ Some key fields:
 * Also suppose the datagram has the identification number 777
 * The following table shows what these fragments would look like:
 
-![](network-layer-notes-05.png)
+![](images/network-layer-notes-05.png)
 
 * The following diagram shows the entire fragmentation process in the scenario described:
 
-![](network-layer-notes-06.png)
+![](images/network-layer-notes-06.png)
 
 #### IP fragmentation costs
 
@@ -347,7 +347,7 @@ While fragmentation plays an important role in addressing the problem of differe
 * Each IP address at each interface on every host and router on the Internet must have a unique IP address 
 * One router with three interfaces will have an IP address at each interface which share the leftmost 24 bits in their IP address as seen in the diagram:
 
-![](network-layer-notes-07.png)
+![](images/network-layer-notes-07.png)
 
 * In IP terms this network interconnecting three host interfaces and one router interface forms a `subnet` or `IP network`
 * Classless Interdomain Routing (CIDR - pronounced cider) generalises subnet addressing 

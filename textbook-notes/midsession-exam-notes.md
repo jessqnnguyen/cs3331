@@ -99,13 +99,13 @@ Transmission delay = (1000 / (100 * 10^6)) * 1000 = 0.01 ms
 
 #### Total nodal delay
 
-![](nodal-delay.png)
+![](images/nodal-delay.png)
 
 
 #### End-to-End Delay
 
 Total delay from source to destination
-![](end-to-end-delay.png)
+![](images/end-to-end-delay.png)
 
 ## Protocols
 
@@ -124,8 +124,8 @@ A protocol defines the format and the order of messages sent and received among 
 * Functionality at one layer may need information that it present only in another layer which violates the goal of the separation of layers
 
 ### The protocol stack
-![](protocol-stack.png)
-![](packet-structure.png)
+![](images/protocol-stack.png)
+![](images/packet-structure.png)
 
 The following is a top down approach to the stack:
 

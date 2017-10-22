@@ -25,7 +25,7 @@ Simplest congestion scenario:
 
 * Two hosts (A and B) each have a connection that shares a single hop between source and destination as shown in the diagram:
 
-![](transport-layer-notes-02.png)
+![](images/transport-layer-notes-02.png)
 
 * Host A is sending data into the connection at a rate of $$$\lambda_{in}$$$ bytes/sec using a very simply data protocol in which each unit of data is sent only once into the connection, there is no error recovery (e.g. retransmission), flow control or congestion control performed
 * Host B operates similarly, also sending at a rate of $$$\lambda_{in}$$$ bytes/sec
@@ -35,7 +35,7 @@ Simplest congestion scenario:
 * The following figure plots the performance of Host A's connection under this first scenario. 
 * The left graph plots the `per-connection throughput` (bytes/sec at receiver) as a function of the connection sending rate
 
-![](transport-layer-notes-03.png)
+![](images/transport-layer-notes-03.png)
 
 * For a sending rate between 0 and R/2, the throughput at the receiver equals the sender's sending rate, i.e. everything sent is received at the receiver (no drops) with a finite delay 
 * However if the sending rate is **above** R/2 then the throughput is only R/2 since A is sharing the link capacity with B
@@ -61,7 +61,7 @@ Hence now we must be careful of the term 'sending rate' since now it includes re
 Consider the case where the offered load is equal to R/2 that is takes up the maximum amount on the link before it impacts on thoroughput
 * In this case as can be seen in the plot below it can be seen that only R/3 of the data has been delivered at the destination
 
-![](transport-layer-notes-04.png)
+![](images/transport-layer-notes-04.png)
 
 * Hence we see that retransmissions are necessary to compensate for dropped packets due to buffer overflow which is caused by congestion
 
@@ -71,7 +71,7 @@ Now consider the case where the sender may time out prematurely and retransmit a
 * Hence this is another cost of congestion - multiple duplicate retransmissions waste link bandwidth  further causing congestion 
 * The result on the per connection thoroughput can be seen below if the sender sends on average two copies of each packet:
 
-![](transport-layer-notes-05.png)
+![](images/transport-layer-notes-05.png)
 
 #### Scenario 3: Four Senders, Routers with Finite Buffers, and Multihop Paths
 
@@ -80,7 +80,7 @@ Now there are:
 * Four hosts transmitting packets over overlapping two hop paths
 * Timeout/retransmission mechanisms are in place for reliable data transfer
 
-![](transport-layer-notes-06.png)
+![](images/transport-layer-notes-06.png)
 
 First consider the case of extremely low traffic
 
@@ -149,7 +149,7 @@ Recall:
 * `rwnd` stores the receive window which is the amount of spare room in the buffer
 * `rwnd = RcvBuffer - [LastByteRcvd - LastByteRead]`
 
-![](transport-layer-notes-01.png)
+![](images/transport-layer-notes-01.png)
 
 * Hence the amount of unacknowledged data at sender may not exceed the minimum of `cwnd` and `rwnd`
 * I.e. `LastByteSent - LastByteAcked <= min(cwnd, rwnd)`
