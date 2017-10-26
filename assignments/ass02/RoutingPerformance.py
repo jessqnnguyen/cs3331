@@ -97,7 +97,6 @@ def main(argv):
                 num_total_packets += packets_to_send
                 addr = (src, dest)
                 jobs.put((k, job_id, addr, "allocate"))
-                job_id += 1
                 deallocate_timestamp = k + ttl
                 jobs.put((deallocate_timestamp, job_id, addr, "deallocate"))
                 job_id += 1
@@ -131,6 +130,9 @@ def main(argv):
             print(vc)
     print("queue size: " + str(jobs.qsize()))
 
+    print("BFS on A->D")
+    BFS(g, "A", "D")
+
     job_id_paths = dict()
     job_ids_blocked = dict()
     # while not(jobs.empty()):
@@ -147,6 +149,15 @@ def main(argv):
                 # print("curr timestamp checking =  " + str(timestamp))
                 # if timestamp == t:
                     # print ("next request time event registered")
+        # all_paths = find_all_paths(g, "A", "D")
+        # for path in all_paths:
+        #     print(path)
+        # path_loads = compute_loads_for_all_paths(e, all_paths)
+        # for k,v in path_loads.items():
+        #     print(k, v)
+
+        # find_loads(e)
+
         if network_scheme.upper() == "CIRCUIT":
             (timestamp, job_id, addr, job_type) = jobs.get()
         else:
@@ -287,22 +298,94 @@ def find_shortest_path(g, e, src, dest, protocol_name):
     print("commencing dijkstra woo!")
     print("*-*-**-*-**-*-**-*-**-*-**-*-**-*-**-*-**-*-**-*-**-*-**-*-**-*-**-*-**-*-**-*-**-*-*")
     protocol = protocol_name.upper()
-    if protocol == "SHP":
-        (dist, st) = dijkstra_shp(g, e, src, dest)
-    elif protocol == "SDP":
-        (dist, st) = dijkstra_sdp(g, e, src, dest)
+    if protocol == "SHP" or protocol == "SDP":
+        if protocol == "SHP":
+            (dist, st) = dijkstra_shp(g, e, src, dest)
+        else:
+            (dist, st) = dijkstra_sdp(g, e, src, dest)
+        path = []
+        while True:
+            path.append(dest)
+            if dest == src:
+                break
+            dest = st[dest]
+        path.reverse()
     elif protocol == "LLP":
-        (dist, st) = dijkstra_llp(g, e, src, dest)
+        print("finding a LLP!")
+        path = find_llp(g, e, src, dest)
     else:
         raise NameError("%s is not a valid routing protocol argument!" % (protocol))
-    path = []
-    while True:
-        path.append(dest)
-        if dest == src:
-            break
-        dest = st[dest]
-    path.reverse()
+    print("found path: " + str(path))
     return path
+
+def find_all_paths(g, src, dest, path=[]):
+    path = path + [src]
+    if src == dest:
+        return [path]
+    if not (src in g.keys()):
+        return []
+    paths = []
+    for node in g[src]:
+        if node not in path:
+            newpaths = find_all_paths(g, node, dest, path)
+            for newpath in newpaths:
+                paths.append(newpath)
+    return paths
+
+def find_loads(e):
+    link_loads = dict()
+    print("finding loads")
+    for k, v in e.items():
+        print(k,v)
+        (d, c, cc) = v
+        load = float(cc / c)
+        link_loads[k] = load
+    return link_loads
+
+
+def compute_loads_for_all_paths(e, paths):
+    link_loads = find_loads(e)
+    path_loads = dict()
+    path_num = 0
+    for path in paths:
+        print(path)
+        max_link_load = 0
+        for i in range(0, len(path) - 1):
+            fst = path[i]
+            snd = path[i + 1]
+            link = fst + snd
+            link_load = link_loads[link]
+            # print("%d / %d = %f" % (cc, c, link_load))
+            # print("link (%s -> %s) is currently serving %d connection(s)" % (fst, snd, cc))
+            if link_load > max_link_load:
+                print("new max found!")
+                print("link load was %f" % link_load)
+                max_link_load = link_load
+            i += 1
+        path_loads[path_num] = max_link_load
+        path_num += 1
+    path_num = 0
+    for path in paths:
+        print("%s : %f" % (str(path), path_loads[path_num]))
+        path_num += 1
+    return path_loads
+
+def find_llp(g, e, src, dest):
+    all_paths = BFS(g, src, dest)
+    for path in all_paths:
+        print(path)
+    path_loads = compute_loads_for_all_paths(e, all_paths)
+
+    min_load = 0
+    min_load_key = 0
+    for k, v in path_loads.items():
+        if min_load == 0:
+            min_load = v
+        elif v < min_load:
+            min_load = v
+            min_load_key = k
+    print("returning all_paths[%d] = %s" % (min_load_key, str(all_paths[min_load_key])))
+    return all_paths[min_load_key]
 
 def dijkstra_llp(g, e, src, dest):
     visited_edges = []
@@ -320,7 +403,8 @@ def dijkstra_llp(g, e, src, dest):
     else:
         for v in g.keys():
             if v != src:
-                dist[v] = float("inf")
+                # dist[v] = float("inf")
+                dist[v] = 0
                 st[v] = ""
 
         q.put((dist[src], src))
@@ -346,7 +430,7 @@ def dijkstra_llp(g, e, src, dest):
                 print("link load = " + str(link_load))
                 alt = link_load
                 print("alt = %f dist[%s] = %f" % (alt, v, dist[v]))
-                if alt < dist[v]:
+                if alt > dist[v]:
                     print("alt < dist[%s]!" % v)
                     dist[v] = alt
                     print("setting dist[%s] = %d" % (v, alt))
@@ -361,6 +445,25 @@ def dijkstra_llp(g, e, src, dest):
     for k, v in st.items():
         print(k, v)
     return (dist, st)
+
+def BFS(g, src, dest):
+    possible_paths = []
+    q = queue.Queue()
+    temp_path = [src]
+    q.put(temp_path)
+    while not(q.empty()):
+        tmp_path = q.get()
+        last_node = tmp_path[len(tmp_path)-1]
+        if last_node == dest:
+            possible_paths.append(tmp_path)
+            print("VALID_PATH : " + str(tmp_path))
+        for link_node in g[last_node]:
+            if link_node not in tmp_path:
+                new_path = []
+                new_path = tmp_path + [link_node]
+                q.put(new_path)
+    return possible_paths
+
 
 def dijkstra_sdp(g, e, src, dest):
     dist = dict() # final distances
