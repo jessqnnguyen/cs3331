@@ -13,7 +13,8 @@ def main(argv):
     workload_file = argv[4]
     packet_rate = int(argv[5]) # positive num, packets / sec
 
-    print("using a %s network scheme!" % (network_scheme))
+    print("%s network scheme registered." % (network_scheme))
+    print("%s routing scheme registered." % (routing_scheme))
 
     num_vc_requests = 0
     num_total_packets = 0
@@ -36,7 +37,6 @@ def main(argv):
         n2 = line_args[1]
         d = line_args[2]
         c = line_args[3].rstrip()
-        # print(n1 + " " + n2 + " " + str(d) + " " + str(c))
         add_edge(g, e, n1, n2, d, c)
         add_edge(g, e, n2, n1, d, c)
         line = f.readline()
@@ -62,26 +62,13 @@ def main(argv):
         src = line_args[1]
         dest = line_args[2]
         ttl = line_args[3].rstrip()
-        # print(str(n) + " " + str(time) + " " + src + " " + dest + " " + str(ttl))
         add_request(requests, time, src, dest, ttl)
-        # start_time = round(float(time), 1)
         start_time = float(time)
         request_timestamps.append(start_time)
         end_time = float(time) + float(ttl)
-        # end_time = round(float(time) + float(ttl), 1)
         request_timestamps.append(end_time)
         line = f.readline()
     f.close()
-
-    # print("request_timestamps size =  " + str(len(request_timestamps)))
-    # for k,v in sorted(requests.items()):
-    #     print(k, v)
-
-    # request_timestamps.sort()
-    # print(request_timestamps)
-    # curr_request_num = 0
-    # next_request_time = request_timestamps[curr_request_num]
-    # t = next_request_time
 
     jobs = queue.PriorityQueue()
 
@@ -96,9 +83,9 @@ def main(argv):
                 packets_to_send = math.floor(float(packet_rate * ttl))
                 num_total_packets += packets_to_send
                 addr = (src, dest)
-                jobs.put((k, job_id, addr, "allocate"))
+                jobs.put((k, job_id, addr, packets_to_send, "allocate"))
                 deallocate_timestamp = k + ttl
-                jobs.put((deallocate_timestamp, job_id, addr, "deallocate"))
+                jobs.put((deallocate_timestamp, job_id, addr, packets_to_send, "deallocate"))
                 job_id += 1
     elif network_scheme.upper() == "PACKET":
         print("................................................................................")
@@ -135,38 +122,16 @@ def main(argv):
 
     job_id_paths = dict()
     job_ids_blocked = dict()
-    # while not(jobs.empty()):
-    #     job = jobs.get()
-    #     print(job)
+
     # Add jobs to the queue from the requests
     while not(jobs.empty()):
-        # print("t =  " + str(t))
-        # print("next request time = " + str(next_request_time))
-        # print ("curr_request_num =  " + str(curr_request_num))
-        # if t == next_request_time:
-            # for i in range(curr_request_num, len(request_timestamps)):
-                # timestamp = request_timestamps[i]
-                # print("curr timestamp checking =  " + str(timestamp))
-                # if timestamp == t:
-                    # print ("next request time event registered")
-        # all_paths = find_all_paths(g, "A", "D")
-        # for path in all_paths:
-        #     print(path)
-        # path_loads = compute_loads_for_all_paths(e, all_paths)
-        # for k,v in path_loads.items():
-        #     print(k, v)
-
-        # find_loads(e)
-
         if network_scheme.upper() == "CIRCUIT":
-            (timestamp, job_id, addr, job_type) = jobs.get()
+            (timestamp, job_id, addr, packets_to_send, job_type) = jobs.get()
         else:
             (timestamp, job_id, packet_id, addr, job_type) = jobs.get()
+            packets_to_send = 1
         print("queue size now = " + str(jobs.qsize()))
         print("current job processsing %s %s" % (timestamp, job_type))
-        # curr_request_num += 1
-        # if curr_request_num < len(request_timestamps):
-            # next_request_time = request_timestamps[curr_request_num]
         src = addr[0]
         dest = addr[1]
         print ("addr: " + str(addr))
@@ -183,7 +148,6 @@ def main(argv):
             print("path found : " + str(path))
         else:
             path = job_id_paths[job_id]
-        # ttl = float(v[2])
         if job_type == "allocate":
             print("allocating")
             print("e: " + str(e))
@@ -205,18 +169,9 @@ def main(argv):
                 print("***********************************************************************************")
                 terminate_circuit(e, path)
                 print("e: " + str(e))
-        # t = round((t + 0.1), 1)
 
-    # path = find_shortest_path(g, e, "A", "D")
-    # print(str(path))
-    #
-    # print("is path ok? " + str(check_capacity(e, path)))
-    # if check_capacity:
-    #     establish_circuit(e, path)
-    #     print(e)
-
-    percentage_successfully_routed_packets = (num_successfully_routed_packets/num_total_packets) * 100
-    percentage_blocked_packets = (num_blocked_packets/num_total_packets) * 100
+    percentage_successfully_routed_packets = round((num_successfully_routed_packets/num_total_packets) * 100, 6)
+    percentage_blocked_packets = round((num_blocked_packets/num_total_packets) * 100, 6)
     total = 0
     for hop_num in hops:
         total += hop_num
@@ -241,23 +196,6 @@ def main(argv):
     print("percentage of blocked packets: " + str(percentage_blocked_packets))
     print("average number of hops per circuit: " + str(avg_num_hops))
     print("average cumulative propagation delay per circuit: " + str(average_cumulative_prop_delay))
-
-# def process_next_job():
-#     (timestamp, v) = jobs.get()
-#     src = v[0]
-#     dest = v[1]
-#     ttl = float(v[2])
-#     packets_to_send = math.floor(float(packet_rate * ttl))
-#     num_total_packets += packets_to_send
-#     path = find_shortest_path(g, e, src, dest, routing_scheme)
-#     if check_capacity:
-#         establish_circuit(e, path)
-#         num_successfully_routed_packets += packets_to_send
-#         hops.append(len(path))
-#         path_delay = compute_prop_delay(e, path)
-#         prop_delays.append(path_delay)
-#     else:
-#         num_blocked_packets += packets_to_send
 
 def compute_prop_delay(e, path):
     total_delay = 0
